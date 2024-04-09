@@ -8,6 +8,8 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 pd.options.mode.chained_assignment = None
 
+N_IMGS = 6
+
 # init session state
 if 'feedback_df' not in st.session_state:
     st.session_state['feedback_df'] = pd.DataFrame({
@@ -17,42 +19,60 @@ if 'feedback_df' not in st.session_state:
         "closest": [1],
     })
 
+if "indices" not in st.session_state:
+    st.session_state["indices"] = range(N_IMGS)
 
-st.title("Number Recommender 🤖")
+
+st.title("Fashion Recommender 🤖")
 
 # set seed for reproducibility
-seed = st.sidebar.number_input("Seed (New random setting)", min_value=0, max_value=100000, value=0, step=1)
-np.random.seed(seed)
-random.seed(seed)
+new_setting_button = st.sidebar.button("New random setting", key="new_setting")
+if new_setting_button:
+    st.session_state["indices"] = [i + N_IMGS for i in st.session_state["indices"]]
+np.random.seed(st.session_state["indices"][0])
+random.seed(st.session_state["indices"][0])
 
 colors = ["#5933d6", "#a80390", "#000000"]
 cmaps = {}
 for color in colors:
-    cmaps[color] = mpl.colors.ListedColormap([color, "#ffffff"])
-numbers = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9]
-def get_price(number, color):
-    noise = random.gauss(0, 1)
+    cmaps[color] = mpl.colors.ListedColormap(["#ffffff", color])
+itemtype = ["t-shirt", "trouser", "sneaker"]
+itemtype_num_orig = [0, 1, 7]
+itemtype_num = [1, 2, 2.5]
+def get_price(itemtype_num, color):
+    noise = random.gauss(0, 0.5)
     if color == "#000000":
-        return (number + 1) * 1
+        return (itemtype_num + 1) * 10
     elif color == "#a80390":
-        return (number + 1) * 2 + noise
+        return (itemtype_num + 1) * 20 + noise
     else:
-        return (number + 1) * 2.2 + noise
+        return (itemtype_num + 1) * 22 + noise
+def number_to_itemtype(input_num):
+    for i, num in enumerate(itemtype_num):
+        if input_num == num:
+            return itemtype[i]
+def number_to_itemtype_num(input_num):
+    for i, num in enumerate(itemtype_num_orig):
+        if input_num == num:
+            return itemtype_num[i]
 
-# Load MNIST dataset
-(x_train, y_train), (x_test, y_test) = tf.keras.datasets.mnist.load_data()
+# Load Fashion MNIST dataset
+(x_train, y_train), (_, _) = tf.keras.datasets.fashion_mnist.load_data()
+x_train = x_train[(y_train == 0) | (y_train == 1) | (y_train == 7)]
+y_train = y_train[(y_train == 0) | (y_train == 1) | (y_train == 7)]
+y_train = np.array([number_to_itemtype_num(y) for y in y_train])
 
-n_choices = 6
-random_indecies = random.sample(range(x_train.shape[0]), n_choices)
 picture_df = pd.DataFrame({
-    "index": random_indecies,
-    "label": y_train[random_indecies],
+    "index": st.session_state["indices"],
+    "label": y_train[st.session_state["indices"]],
 })
-picture_df["color"] = [random.choice(colors) for _ in range(n_choices)]
+
+picture_df["color"] = [random.choice(colors) for _ in range(N_IMGS)]
 picture_df["price"] = [
     np.round(get_price(label, color) , 2)
     for label, color in zip(picture_df["label"], picture_df["color"])
 ]
+picture_df["label_str"] = [number_to_itemtype(num) for num in picture_df["label"]]
 picture_df["price_delta"] = (picture_df["price"] - picture_df["price"].iloc[0])**2
 picture_df["label_delta"] = (picture_df["label"] - picture_df["label"].iloc[0])**2
 picture_df["color_delta"] = (picture_df["color"] != picture_df["color"].iloc[0]).astype(int)
@@ -75,7 +95,7 @@ expander_recommend = st.sidebar.expander("Perform recommendations", expanded=Fal
 with expander_recommend:
     should_recommend = st.checkbox("Recommend?")
     price_weight = st.number_input("Price weight", min_value=-1_000.0, max_value=1_000.0, value=0.0, step=0.1)
-    label_weight = st.number_input("Label weight", min_value=-1_000.0, max_value=1_000.0, value=0.0, step=0.1)
+    label_weight = st.number_input("Item weight", min_value=-1_000.0, max_value=1_000.0, value=0.0, step=0.1)
     color_weight = st.number_input("Color weight", min_value=-1_000.0, max_value=1_000.0, value=0.0, step=0.1)
 if should_recommend:
     distances = (
@@ -95,14 +115,14 @@ with expander_feedback:
 picture_df = picture_df.iloc[1:].copy()
 picture_df["distance_feedback"] = 0
 
-img_cols = st.columns(n_choices-1)
+img_cols = st.columns(N_IMGS-1)
 for i, col in enumerate(img_cols):
     with col:
         display_image(
             picture_df["index"].iloc[i], 
             color_map=cmaps[picture_df["color"].iloc[i]]
         )
-        st.write(f"Number: **{picture_df['label'].iloc[i]}**")
+        st.write(f"Item: **{picture_df['label_str'].iloc[i]}**")
         st.write(f"Price: {picture_df['price'].iloc[i]}€")
         if should_recommend:
             st.write(f"Distance: {picture_df['distance'].iloc[i]:.2f}")
@@ -129,18 +149,18 @@ with st.expander("ML recommendation for the weights", expanded=False):
     n_not_closest = fit_df.shape[0] - n_closest
     if n_closest > n_not_closest:
         fit_df = pd.concat([
-            fit_df[fit_df["closest"] == 1].sample(n=n_not_closest, random_state=seed),
+            fit_df[fit_df["closest"] == 1].sample(n=n_not_closest, random_state=st.session_state["indices"][0]),
             fit_df[fit_df["closest"] == 0]
         ])
     elif n_closest < n_not_closest:
         fit_df = pd.concat([
             fit_df[fit_df["closest"] == 1],
-            fit_df[fit_df["closest"] == 0].sample(n=n_closest, random_state=seed)
+            fit_df[fit_df["closest"] == 0].sample(n=n_closest, random_state=st.session_state["indices"][0])
         ])
     if fit_df.shape[0] > 1:
         X = fit_df[["price_delta", "label_delta", "color_delta"]]
         y = fit_df["closest"]
-        clf = LogisticRegression(random_state=seed).fit(X, y)
+        clf = LogisticRegression(random_state=st.session_state["indices"][0]).fit(X, y)
         # display the coefficients in a pretty way coefficient by coefficient
         for i, coef in enumerate(clf.coef_[0]):
             st.write(f'{X.columns[i].replace("_delta", "").title()} Weight: {coef:.2f}')
