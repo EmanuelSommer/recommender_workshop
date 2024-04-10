@@ -6,6 +6,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 import pandas as pd
 from sklearn.linear_model import LogisticRegression
+from streamlit_extras.stylable_container import stylable_container
 pd.options.mode.chained_assignment = None
 
 N_IMGS = 6
@@ -13,10 +14,10 @@ N_IMGS = 6
 # init session state
 if 'feedback_df' not in st.session_state:
     st.session_state['feedback_df'] = pd.DataFrame({
-        "price_delta": [1],
-        "label_delta": [1],
-        "color_delta": [1],
-        "closest": [1],
+        "price_delta": [0],
+        "label_delta": [0],
+        "color_delta": [0],
+        "closest": [0],
     })
 
 if "indices" not in st.session_state:
@@ -25,7 +26,6 @@ if "indices" not in st.session_state:
 
 st.title("Fashion Recommender 🤖")
 
-# set seed for reproducibility
 new_setting_button = st.sidebar.button("New random setting", key="new_setting")
 if new_setting_button:
     st.session_state["indices"] = [i + N_IMGS for i in st.session_state["indices"]]
@@ -87,16 +87,16 @@ ref_cols = st.columns([3, 3, 3])
 with ref_cols[1]:
     st.write("Currently selected item:")
     display_image(picture_df["index"].iloc[0], color_map=cmaps[picture_df["color"].iloc[0]])
-    st.write(f"Number: **{picture_df['label'].iloc[0]}**\n\nPrice: {picture_df['price'].iloc[0]}€")
+    st.write(f"Item: **{picture_df['label_str'].iloc[0]}**\n\nPrice: {picture_df['price'].iloc[0]}€")
 
 st.write("Now the recommender should choose a the next best item for you from the following options:")
 
 expander_recommend = st.sidebar.expander("Perform recommendations", expanded=False)
 with expander_recommend:
     should_recommend = st.checkbox("Recommend?")
-    price_weight = st.number_input("Price weight", min_value=-1_000.0, max_value=1_000.0, value=0.0, step=0.1)
-    label_weight = st.number_input("Item weight", min_value=-1_000.0, max_value=1_000.0, value=0.0, step=0.1)
-    color_weight = st.number_input("Color weight", min_value=-1_000.0, max_value=1_000.0, value=0.0, step=0.1)
+    price_weight = st.number_input("Price weight", min_value=-100_000.0, max_value=100_000.0, value=0.0, step=0.1)
+    label_weight = st.number_input("Item weight", min_value=-100_000.0, max_value=100_000.0, value=0.0, step=0.1)
+    color_weight = st.number_input("Color weight", min_value=-100_000.0, max_value=100_000.0, value=0.0, step=0.1)
 if should_recommend:
     distances = (
         price_weight * picture_df["price_delta"] +
@@ -107,13 +107,11 @@ if should_recommend:
     picture_df["distance"] = distances
     picture_df = picture_df.sort_values("distance")
 
-expander_feedback = st.sidebar.expander("Record feedback", expanded=False)
-with expander_feedback:
-    record_feedback = st.checkbox("Record feedback?")
-    submit_feedback = st.button("Add feedback")
+record_feedback = st.sidebar.checkbox("Record feedback?")
 
 picture_df = picture_df.iloc[1:].copy()
-picture_df["distance_feedback"] = 0
+picture_df = picture_df.reset_index(drop=True)
+picture_df["distance_feedback"] = -1
 
 img_cols = st.columns(N_IMGS-1)
 for i, col in enumerate(img_cols):
@@ -127,22 +125,61 @@ for i, col in enumerate(img_cols):
         if should_recommend:
             st.write(f"Distance: {picture_df['distance'].iloc[i]:.2f}")
         if record_feedback:
-            picture_df["distance_feedback"].loc[i] = st.number_input("Distance", min_value=0, max_value=1_000, value=0, step=1, key=i)
-
-if submit_feedback:
-    update_df = picture_df.copy()
-    # bad encoding: closest is 0 if it is the closest, 1 otherwise
-    update_df["closest"] = 1
-    update_df.loc[update_df["distance_feedback"].idxmin(), "closest"] = 0
-    st.session_state['feedback_df'] = pd.concat(
-        [st.session_state['feedback_df'], update_df[["price_delta", "label_delta", "color_delta", "closest"]]],
-    )
+            # green button for closest, red for not closest
+            further_cols = st.columns([1, 1])
+            with further_cols[0]:
+                with stylable_container(
+                    "green",
+                    css_styles="""
+                    button {
+                        background-color: #4CAF50;
+                        color: black;
+                    }""",
+                ):
+                    if st.button("👍", key=i, use_container_width=True):
+                        picture_df["distance_feedback"].loc[i] = 0
+                        update_df = picture_df.copy()
+                        update_df["closest"] = 0
+                        update_df = update_df[update_df["distance_feedback"] == 0]
+                        st.session_state['feedback_df'] = pd.concat(
+                            [st.session_state['feedback_df'], update_df[["price_delta", "label_delta", "color_delta", "closest"]]],
+                        )
+            with further_cols[1]:
+                with stylable_container(
+                    "red",
+                    css_styles="""
+                    button {
+                        background-color: #a86c71;
+                        color: black;
+                    }""",
+                ):
+                    if st.button("👎", key=i+100, use_container_width=True):
+                        picture_df["distance_feedback"].loc[i] = 1
+                        update_df = picture_df.copy()
+                        update_df["closest"] = 1
+                        update_df = update_df[update_df["distance_feedback"] == 1]
+                        st.session_state['feedback_df'] = pd.concat(
+                            [st.session_state['feedback_df'], update_df[["price_delta", "label_delta", "color_delta", "closest"]]],
+                        )
 
 with st.expander("Show feedback", expanded=False):
-    st.write(st.session_state['feedback_df'])
+    display_feedback = st.session_state['feedback_df'].copy()
+    # rename the columns for better readability all _delta should be turned into difference
+    display_feedback.columns = [col.replace("_delta", " difference").replace("label", "item").title() for col in display_feedback.columns]
+    display_feedback["Best Choice"] = display_feedback["Closest"].replace({0: True, 1: False})
+    st.dataframe(display_feedback[["Price Difference", "Item Difference", "Color Difference", "Best Choice"]])
+
+    
+    if st.button("Reset feedback", use_container_width=False):
+        st.session_state['feedback_df'] = pd.DataFrame({
+            "price_delta": [0],
+            "label_delta": [0],
+            "color_delta": [0],
+            "closest": [0],
+        })
 
 with st.expander("ML recommendation for the weights", expanded=False):
-    st.info("This is a simple logistic regression model that predicts which is the closest image to the user's preference. The input features are the differences in price, label, and color between the images. The more good examples you provide the better the model.")
+    st.info("This is a simple logistic regression model that predicts which is the best next choice according to the user's preference. The input features are the differences in price, item, and color between the images. The more good examples you provide the better the model gets.")
     fit_df = st.session_state['feedback_df'].copy()
     # balance the dataset such that 50/50 are closest and not closest
     n_closest = fit_df["closest"].sum()
@@ -163,4 +200,6 @@ with st.expander("ML recommendation for the weights", expanded=False):
         clf = LogisticRegression(random_state=st.session_state["indices"][0]).fit(X, y)
         # display the coefficients in a pretty way coefficient by coefficient
         for i, coef in enumerate(clf.coef_[0]):
-            st.write(f'{X.columns[i].replace("_delta", "").title()} Weight: {coef:.2f}')
+            if np.any(np.abs(clf.coef_[0]) < 0.01):
+                coef *= 10_000
+            st.write(f'{X.columns[i].replace("_delta", "").replace("label", "item").title()} weight: {coef:.2f}')
