@@ -91,7 +91,7 @@ with ref_cols[1]:
 
 st.write("Now the recommender should choose a the next best item for you from the following options:")
 
-expander_recommend = st.sidebar.expander("Perform recommendations", expanded=False)
+expander_recommend = st.sidebar.expander("Tune recommendations", expanded=False)
 with expander_recommend:
     should_recommend = st.checkbox("Recommend?")
     price_weight = st.number_input("Price weight", min_value=-100_000.0, max_value=100_000.0, value=0.0, step=0.1)
@@ -107,7 +107,11 @@ if should_recommend:
     picture_df["distance"] = distances
     picture_df = picture_df.sort_values("distance")
 
-record_feedback = st.sidebar.checkbox("Record feedback?")
+extender_feedback = st.sidebar.expander("Collect Feedback", expanded=False)
+with extender_feedback:
+    record_feedback = st.checkbox("Record feedback?")
+    if record_feedback:
+        st.info("You can provide feedback on the recommendations by clicking 👍 or 👎. This feedback is recorded and can be used for training a customized ML model.")
 
 picture_df = picture_df.iloc[1:].copy()
 picture_df = picture_df.reset_index(drop=True)
@@ -179,7 +183,6 @@ with st.expander("Show feedback", expanded=False):
         })
 
 with st.expander("ML recommendation for the weights", expanded=False):
-    st.info("This is a simple logistic regression model that predicts which is the best next choice according to the user's preference. The input features are the differences in price, item, and color between the images. The more good examples you provide the better the model gets.")
     fit_df = st.session_state['feedback_df'].copy()
     # balance the dataset such that 50/50 are closest and not closest
     n_closest = fit_df["closest"].sum()
@@ -195,6 +198,8 @@ with st.expander("ML recommendation for the weights", expanded=False):
             fit_df[fit_df["closest"] == 0].sample(n=n_closest, random_state=st.session_state["indices"][0])
         ])
     if fit_df.shape[0] > 1:
+        st.info("This is a simple logistic regression model that predicts which is the best next choice according to the user's preference. The input features are the differences in price, item, and color between the images. The more good examples you provide the better the model gets.")
+
         X = fit_df[["price_delta", "label_delta", "color_delta"]]
         y = fit_df["closest"]
         clf = LogisticRegression(random_state=st.session_state["indices"][0]).fit(X, y)
@@ -203,3 +208,5 @@ with st.expander("ML recommendation for the weights", expanded=False):
             if np.any(np.abs(clf.coef_[0]) < 0.01):
                 coef *= 10_000
             st.write(f'{X.columns[i].replace("_delta", "").replace("label", "item").title()} weight: {coef:.2f}')
+    else:
+        st.warning("Please provide more feedback to train the model.")
