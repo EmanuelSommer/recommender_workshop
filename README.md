@@ -1,6 +1,6 @@
 # Mini-Workshop: Introduction to Recommender Systems
 
-This repository contains the code for the mini-workshop introducing ML and in particular Recommender Systems. The workshop is organized by the Munich Center for Machine Learning (MCML) and aims to provide a hands-on introduction to the topic. The target audience are high school students with a strong interest in computer science and machine learning.
+This repository contains the code for the **mini-workshop introducing the world of ML and in particular Recommender Systems**. The workshop is organized by the [Munich Center for Machine Learning (MCML)](https://mcml.ai/) and aims to provide an interactive introduction to the topic. The target audience are high school students with a strong interest in computer science and machine learning. However **no prior knowledge** is required to participate in the workshop. This repository contains the code for the interactive code based part of the workshop.
 
 If you are interested in organizing a similar workshop, feel free to use the material provided here but please make sure to give proper credit. Also, feel free to reach out to me if you have any questions or are interested in the slides or additional material.
 
