@@ -4,7 +4,7 @@ This repository contains the code for the mini-workshop introducing ML and in pa
 
 If you are interested in organizing a similar workshop, feel free to use the material provided here but please make sure to give proper credit. Also, feel free to reach out to me if you have any questions or are interested in the slides or additional material.
 
-A link to the read2use streamlit app can be found [HERE](https://emanuelsommer-recommender-workshop-1--recommender-rc8jfb.streamlit.app/Random_Page).
+A link to the read2use streamlit app can be found [HERE](https://emanuelsommer-recommender-workshop-1--recommender-rc8jfb.streamlit.app/).
 
 ## Local Setup
 
