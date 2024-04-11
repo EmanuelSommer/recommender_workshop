@@ -35,7 +35,10 @@ random.seed(st.session_state["indices"][0])
 colors = ["#5933d6", "#a80390", "#000000"]
 cmaps = {}
 for color in colors:
-    cmaps[color] = mpl.colors.ListedColormap(["#ffffff", color])
+    # color map from white to color (gradient)
+    cmaps[color] = mpl.colors.LinearSegmentedColormap.from_list(
+        "custom", ["#ffffff", color]
+    )
 itemtype = ["t-shirt", "trouser", "sneaker"]
 itemtype_num_orig = [0, 1, 7]
 itemtype_num = [1, 2, 2.5]
@@ -79,7 +82,7 @@ picture_df["color_delta"] = (picture_df["color"] != picture_df["color"].iloc[0])
 
 def display_image(index, color_map="viridis"):
     import matplotlib.pyplot as plt
-    plt.imshow(x_train[index], cmap=color_map)
+    plt.imshow(x_train[index] / 255, cmap=color_map)
     plt.axis('off')
     st.pyplot(plt)
 
