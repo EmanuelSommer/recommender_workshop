@@ -76,8 +76,8 @@ picture_df["price"] = [
     for label, color in zip(picture_df["label"], picture_df["color"])
 ]
 picture_df["label_str"] = [number_to_itemtype(num) for num in picture_df["label"]]
-picture_df["price_delta"] = (picture_df["price"] - picture_df["price"].iloc[0])**2
-picture_df["label_delta"] = (picture_df["label"] - picture_df["label"].iloc[0])**2
+picture_df["price_delta"] = np.abs(picture_df["price"] - picture_df["price"].iloc[0])
+picture_df["label_delta"] = np.abs(picture_df["label"] - picture_df["label"].iloc[0])
 picture_df["color_delta"] = (picture_df["color"] != picture_df["color"].iloc[0]).astype(int)
 
 def display_image(index, color_map="viridis"):
