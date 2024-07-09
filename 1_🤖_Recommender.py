@@ -8,9 +8,7 @@ import pandas as pd
 from sklearn.linear_model import LogisticRegression
 from streamlit_extras.stylable_container import stylable_container
 pd.options.mode.chained_assignment = None
-
 N_IMGS = 6
-
 # init session state
 if 'feedback_df' not in st.session_state:
     st.session_state['feedback_df'] = pd.DataFrame({
@@ -23,25 +21,22 @@ if 'feedback_df' not in st.session_state:
 if "indices" not in st.session_state:
     st.session_state["indices"] = range(N_IMGS)
 
-
 st.title("Fashion Recommender 🤖")
-
 new_setting_button = st.sidebar.button("New random setting", key="new_setting")
 if new_setting_button:
     st.session_state["indices"] = [i + N_IMGS for i in st.session_state["indices"]]
 np.random.seed(st.session_state["indices"][0])
 random.seed(st.session_state["indices"][0])
-
 colors = ["#5933d6", "#a80390", "#000000"]
 cmaps = {}
 for color in colors:
-    # color map from white to color (gradient)
     cmaps[color] = mpl.colors.LinearSegmentedColormap.from_list(
         "custom", ["#ffffff", color]
     )
 itemtype = ["t-shirt", "trouser", "sneaker"]
 itemtype_num_orig = [0, 1, 7]
 itemtype_num = [1, 2, 2.5]
+
 def get_price(itemtype_num, color):
     noise = random.gauss(0, 0.5)
     if color == "#000000":
@@ -50,26 +45,25 @@ def get_price(itemtype_num, color):
         return (itemtype_num + 1) * 20 + noise
     else:
         return (itemtype_num + 1) * 22 + noise
+
 def number_to_itemtype(input_num):
     for i, num in enumerate(itemtype_num):
         if input_num == num:
             return itemtype[i]
+
 def number_to_itemtype_num(input_num):
     for i, num in enumerate(itemtype_num_orig):
         if input_num == num:
             return itemtype_num[i]
-
-# Load Fashion MNIST dataset
+        
 (x_train, y_train), (_, _) = tf.keras.datasets.fashion_mnist.load_data()
 x_train = x_train[(y_train == 0) | (y_train == 1) | (y_train == 7)]
 y_train = y_train[(y_train == 0) | (y_train == 1) | (y_train == 7)]
 y_train = np.array([number_to_itemtype_num(y) for y in y_train])
-
 picture_df = pd.DataFrame({
     "index": st.session_state["indices"],
     "label": y_train[st.session_state["indices"]],
 })
-
 picture_df["color"] = [random.choice(colors) for _ in range(N_IMGS)]
 picture_df["price"] = [
     np.round(get_price(label, color) , 2)
@@ -92,8 +86,7 @@ with ref_cols[1]:
     display_image(picture_df["index"].iloc[0], color_map=cmaps[picture_df["color"].iloc[0]])
     st.write(f"Item: **{picture_df['label_str'].iloc[0]}**\n\nPrice: {picture_df['price'].iloc[0]}€")
 
-st.write("Now the recommender should choose a the next best item for you from the following options:")
-
+st.write("Now the recommender should choose the next best item for you from the following options:")
 expander_recommend = st.sidebar.expander("Tune recommendations", expanded=False)
 with expander_recommend:
     should_recommend = st.checkbox("Recommend?")
@@ -115,7 +108,6 @@ with extender_feedback:
     record_feedback = st.checkbox("Record feedback?")
     if record_feedback:
         st.info("You can provide feedback on the recommendations by clicking 👍 or 👎. This feedback is recorded and can be used for training a customized ML model.")
-
 picture_df = picture_df.iloc[1:].copy()
 picture_df = picture_df.reset_index(drop=True)
 picture_df["distance_feedback"] = -1
@@ -202,11 +194,9 @@ with st.expander("ML recommendation for the weights", expanded=False):
         ])
     if fit_df.shape[0] > 1:
         st.info("This is a simple logistic regression model that predicts which is the best next choice according to the user's preference. The input features are the differences in price, item, and color between the images. The more good examples you provide the better the model gets.")
-
         X = fit_df[["price_delta", "label_delta", "color_delta"]]
         y = fit_df["closest"]
         clf = LogisticRegression(random_state=st.session_state["indices"][0]).fit(X, y)
-        # display the coefficients in a pretty way coefficient by coefficient
         for i, coef in enumerate(clf.coef_[0]):
             if np.any(np.abs(clf.coef_[0]) < 0.01):
                 coef *= 10_000

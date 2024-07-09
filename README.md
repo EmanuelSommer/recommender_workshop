@@ -28,3 +28,7 @@ streamlit run 1_🤖_Recommender.py
 ```
 
 Have fun! 🚀
+
+## Contributing
+
+If you have any suggestions, ideas or improvements, feel free to open an issue or create a pull request. I'd be happy if the workshop material could be improved and extended. Especially easy deployment guides and utilities for the streamlit app would be a nice addition.
